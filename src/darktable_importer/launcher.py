@@ -43,7 +43,6 @@ class DarktableLauncher:
             self._safe_remove_script(script_path)
             raise
 
-        self._schedule_cleanup(process, script_path)
         return process
 
     def _build_command(

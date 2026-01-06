@@ -12,6 +12,7 @@ LAUNCHER_BIN := $(abspath $(BIN))/darktable-importer
 venv:
 	$(PYTHON) -m venv $(VENV)
 	$(PIP) install --upgrade pip setuptools wheel
+	$(PIP) show Lightroom-SQL-tools > /dev/null 2>&1 || $(PIP) install git+https://github.com/fdenivac/Lightroom-SQL-tools
 
 install: venv
 	$(PIP) install .
