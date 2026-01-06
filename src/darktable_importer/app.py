@@ -12,12 +12,14 @@ from .launcher import DarktableLauncher
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
 
-    importer = LRImporter()
-    images = importer.import_images(Path(args.input))
+    importer = LRImporter(Path(args.input))
+    images = importer.import_images()
     if not images:
         print("No images found in the catalogue", file=sys.stderr)
         return 1
 
+    if args.xmp:
+        importer.export_xmp(images)
     launcher = DarktableLauncher()
     process = launcher.launch(Path(args.output), [image.path for image in images])
     return process.wait()

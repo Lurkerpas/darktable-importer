@@ -8,7 +8,7 @@ version = "0.0.1"
 description = "Importer for Darktable catalogues"
 authors = [{ name = "Lurker_pas" }]
 requires-python = ">=3.10"
-dependencies = []
+dependencies = ["python-xmp-toolkit==2.1.0"]
 
 [project.scripts]
 darktable-importer = "darktable_importer.app:main"
