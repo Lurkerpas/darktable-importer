@@ -142,7 +142,7 @@ class LRImporter:
         # TODO log error
         return xmp_string
 
-    def export_xmp(self, images: list[ImageData]) -> None:
+    def export_xmp(self, images: list[ImageData], extra_keywords: list[str] | None = None) -> None:
         for image in images:
             try:
                 # First (the only) column is the XMP data; why is it additionally packed in a tuple? Don't know.
@@ -151,6 +151,8 @@ class LRImporter:
                 # TODO - possibly check whether there is a possibility that the data is not compressed
                 xmp_data_decompressed = zlib.decompress(xmp_data[4:])
                 xmp_string = xmp_data_decompressed.decode('utf-8', errors='replace')
+                if extra_keywords is not None:
+                    xmp_string = self.add_keywords_to_xmp(xmp_string, extra_keywords)
                 if image.keywords:
                     xmp_string = self.add_keywords_to_xmp(xmp_string, image.keywords)
                 if image.picked:

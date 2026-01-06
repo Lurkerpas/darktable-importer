@@ -11,6 +11,9 @@ from .launcher import DarktableLauncher
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
+    cli_keywords: list[str] | None = None
+    if args.keywords is not None:
+        cli_keywords = [kw.strip() for kw in args.keywords.split(",") if kw.strip()]
 
     importer = LRImporter(Path(args.input))
     images = importer.import_images()
@@ -19,7 +22,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
 
     if args.xmp:
-        importer.export_xmp(images)
+        importer.export_xmp(images, cli_keywords)
     launcher = DarktableLauncher()
     process = launcher.launch(Path(args.output), [image.path for image in images])
     return process.wait()
@@ -32,6 +35,10 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
         "--xmp",
         action="store_true",
         help="Export XMP metadata",
+    )
+    parser.add_argument(
+        "--keywords",
+        help="Comma-separated list of keywords to append to the exported XMP files",
     )
     return parser.parse_args(args=list(argv) if argv is not None else None)
 
