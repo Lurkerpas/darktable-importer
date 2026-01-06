@@ -78,6 +78,69 @@ class LRImporter:
             result.append(image_data)
         return result
 
+    def ensure_lr_namespace(self, xmp_string : str) -> str:
+        lr_ns = 'http://ns.adobe.com/lightroom/1.0/'
+        if 'xmlns:xmp=' in xmp_string and 'xmlns:lr=' not in xmp_string:
+            xmp_string = xmp_string.replace('xmlns:xmp=', f'xmlns:lr="{lr_ns}"\nxmlns:xmp=', 1)
+        return xmp_string
+
+    def ensure_keywords_container(self, xmp_string : str) -> str:    
+        # Ensure namespace exists
+        new_xmp_string = self.ensure_lr_namespace(xmp_string)
+        # Ensure hierarchicalSubject exists; if not, insert it before first <exif:, otherwise before the end of rdf:Description
+        if '<lr:hierarchicalSubject' not in new_xmp_string:
+            idx = new_xmp_string.find('<exif:')
+            if idx == -1:
+                idx = new_xmp_string.find('</rdf:Description>')
+            if idx == -1:
+                # Unexpected format, return as is
+                return xmp_string
+            insertion = (
+            '<lr:hierarchicalSubject>\n'
+            '   <rdf:Bag>\n'
+            '   </rdf:Bag>\n'
+            '</lr:hierarchicalSubject>\n'
+            )
+            new_xmp_string = new_xmp_string[:idx] + insertion + new_xmp_string[idx:]
+        return new_xmp_string
+
+    def add_keywords_to_xmp(self, xmp_string : str, keywords : list[str]) -> str:
+        # Darktable adds tags the following way:
+        # <lr:hierarchicalSubject>
+        #     <rdf:Bag>
+        #         <rdf:li>MyTag</rdf:li>
+        #         <rdf:li>darktable|format|nef</rdf:li>
+        #     </rdf:Bag>
+        # </lr:hierarchicalSubject>  
+
+        # Why processing is done using regexes and string manipulation?
+        # XMP Toolkit library relies on native code, just returns errors and cannot be easily debugged.
+        # Parsing and reassembling the XML is more invasive, I would like to avoid touching anything unless necessary.
+        # There is no need to be pedantic about indentation, because Darktable needs to be launched anyway to import the images,
+        # and upon opening, the XMP files are reparsed and reformatted by Darktable itself.
+        if not keywords:
+            return xmp_string
+        new_xmp_string = self.ensure_keywords_container(xmp_string)
+        items = "\n".join([f"       <rdf:li>{keyword}</rdf:li>" for keyword in keywords])
+
+        # Insert items into first <lr:hierarchicalSubject>...<rdf:Bag> using regex
+        match = re.search(
+            r'(<lr:hierarchicalSubject\b[^>]*>.*?<rdf:Bag\b[^>]*>)(?P<content>.*?)(</rdf:Bag>)',
+            new_xmp_string,
+            flags=re.DOTALL
+        )
+        if match:
+            prefix = match.group(1)
+            content = match.group('content')
+            suffix = match.group(3)
+            if content.strip() == "":
+                new_content = "\n" + items + "\n"
+            else:
+                new_content = content + items + "\n"            
+            new_xmp_string = new_xmp_string[:match.start()] + prefix + new_content + suffix + new_xmp_string[match.end():]
+            return new_xmp_string   
+        # TODO log error
+        return xmp_string
 
     def export_xmp(self, images: list[ImageData]) -> None:
         for image in images:
@@ -88,11 +151,13 @@ class LRImporter:
                 # TODO - possibly check whether there is a possibility that the data is not compressed
                 xmp_data_decompressed = zlib.decompress(xmp_data[4:])
                 xmp_string = xmp_data_decompressed.decode('utf-8', errors='replace')
-
-                #print(f"Exporting XMP for image {image.id} to {image.path}.xmp - {xmp_string}")
+                if image.keywords:
+                    xmp_string = self.add_keywords_to_xmp(xmp_string, image.keywords)
+                if image.picked:
+                    xmp_string = self.add_keywords_to_xmp(xmp_string, ['picked'])
                 xmp_path = Path(f"{image.path}.xmp")
                 xmp_path.parent.mkdir(parents=True, exist_ok=True)
-                xmp_path.write_text(xmp_string, encoding="utf-8")
+                xmp_path.write_text(xmp_string, encoding="utf-8")               
             except LRCatException as _e:
                 print(f" ==> WARNING: Failed to get XMP for image {image.id}: {_e}")
        

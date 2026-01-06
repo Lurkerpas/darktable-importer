@@ -24,7 +24,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     process = launcher.launch(Path(args.output), [image.path for image in images])
     return process.wait()
 
-
 def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Import catalogue into darktable")
     parser.add_argument("--input", required=True, help="Path to the input catalogue (.lrcat)")
