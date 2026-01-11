@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import os
 from pathlib import Path
 from typing import Sequence
 
@@ -23,8 +24,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     cli_keywords: list[str] | None = None
     if args.keywords is not None:
         cli_keywords = [kw.strip() for kw in args.keywords.split(",") if kw.strip()]
+    input_path = Path(args.input)
+    if not input_path.exists() or not input_path.is_file():
+        logger.error(f"Input catalogue not found or is not a file: {input_path}")
+        return 2
+    if not os.access(input_path, os.R_OK):
+        logger.error(f"Input catalogue is not readable: {input_path}")
+        return 3
 
-    importer = LRImporter(Path(args.input))
+    try:
+        importer = LRImporter(input_path)
+    except Exception as exc:
+        logger.error(f"Failed to initialize importer: {exc}")
+        return 4
     images = importer.import_images()
     if not images:
         logger.error("No images found in the catalogue")
@@ -36,10 +48,28 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.donotlaunch:
         logger.info("--donotlaunch set; skipping launching of darktable")
         return 0
+
     logger.info(f"Launching {args.app} with library: {args.output}")
     launcher = DarktableLauncher(darktable_binary=args.app)
-    process = launcher.launch(Path(args.output), [image.path for image in images])
-    return process.wait()
+    try:
+        process = launcher.launch(Path(args.output), [image.path for image in images])
+    except FileNotFoundError:
+        logger.error(f"Darktable binary not found: {args.app}")
+        return 5
+    except OSError as exc:
+        logger.error(f"Failed to launch darktable: {exc}")
+        return 6
+
+    return_code = process.wait()
+    if return_code < 0:
+        # Process terminated by signal
+        logger.error(f"darktable terminated by signal: {-return_code}")
+        return 128
+    if return_code > 0:
+        logger.error(f"darktable exited with non-zero status: {return_code}")
+    else:
+        logger.info("darktable exited successfully")
+    return return_code
 
 def _configure_logging(verbosity: str) -> None:
     """Configure logging based on verbosity level."""

@@ -31,7 +31,7 @@ class LRImporter:
             self.lrdb = LRCatDB(db_path)
         except LRCatException as _e:
             logger.error(f"Failed to open catalogue: {_e}")
-            sys.exit(1)
+            raise RuntimeError(f"Failed to open catalogue: {_e}") from _e
 
     def find_actual_root_path(self, db_root_path: str, actual_db_path: Path) -> str:
         # Assumption - catalogue file is a subpath of the reported root folder
