@@ -67,9 +67,8 @@ class LRImporter:
         logger.info(f"Actual root folder: {actual_root_folder}")
         logger.debug(f"Root folder from catalogue: {root_folder}")
         columns = "id, name=full, keywords, flag"
-        criteria = ""
         try:
-            rows = self.lrdb.lrphoto.select_generic(columns, criteria).fetchall()
+            rows = self.lrdb.lrphoto.select_generic(columns).fetchall()
         except LRSelectException as _e:
             logger.error(f"Failed to select images: {_e}")
             sys.exit(1)
@@ -155,23 +154,49 @@ class LRImporter:
             try:
                 # First (the only) column is the XMP data; why is it additionally packed in a tuple? Don't know.
                 xmp_data = self.lrdb.get_xmp(image.id)[0][0]
+            except LRCatException as _e:
+                logger.warning(f"Failed to get XMP for image {image.id}: {_e}")
+                failed_count += 1
+                continue
+
+            # Decompress and decode; handle decompression/decoding issues
+            try:
                 # Compressed XMP data is stored with a 4-byte header, skip it
                 # TODO - possibly check whether there is a possibility that the data is not compressed
                 xmp_data_decompressed = zlib.decompress(xmp_data[4:])
                 xmp_string = xmp_data_decompressed.decode('utf-8', errors='replace')
+            except zlib.error as _e:
+                logger.warning(f"Failed to decompress XMP for image {image.id}: {_e}")
+                failed_count += 1
+                continue
+            except UnicodeDecodeError as _e:
+                logger.warning(f"Failed to decode XMP for image {image.id}: {_e}")
+                failed_count += 1
+                continue
+
+            try:
                 if extra_keywords is not None:
                     xmp_string = self.add_keywords_to_xmp(xmp_string, extra_keywords)
                 if image.keywords:
                     xmp_string = self.add_keywords_to_xmp(xmp_string, image.keywords)
                 if image.picked:
                     xmp_string = self.add_keywords_to_xmp(xmp_string, ['picked'])
+
                 xmp_path = Path(f"{image.path}.xmp")
                 xmp_path.parent.mkdir(parents=True, exist_ok=True)
-                xmp_path.write_text(xmp_string, encoding="utf-8")
+                try:
+                    xmp_path.write_text(xmp_string, encoding="utf-8")
+                except OSError as _e:
+                    logger.error(f"Failed to write XMP for image {image.id} to {xmp_path}: {_e}")
+                    failed_count += 1
+                    continue
+
                 logger.debug(f"Exported XMP for {image.path}")
                 success_count += 1
-            except LRCatException as _e:
-                logger.warning(f"Failed to get XMP for image {image.id}: {_e}")
+            except Exception as _e:
+                logger.error(f"Unexpected error while preparing or writing XMP for image {image.id}: {_e}")
                 failed_count += 1
+                continue
+
         logger.info(f"Exported XMP for {success_count} images" + (f" ({failed_count} failed)" if failed_count > 0 else ""))
        
