@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "darktable-importer"
-version = "0.0.1"
+version = "1.0.0"
 description = "Importer for Darktable catalogues"
 authors = [{ name = "Lurker_pas" }]
 requires-python = ">=3.10"
