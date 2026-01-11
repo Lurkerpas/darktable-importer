@@ -22,7 +22,7 @@ class ImageData:
     path : str
     id : str
     picked : bool = False
-    keywords : list[str] = []
+    keywords : list[str]
 
     def __init__(self, id: str, path: str) -> None:
         self.id = id
