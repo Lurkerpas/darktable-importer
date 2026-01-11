@@ -5,7 +5,6 @@ import json
 import os
 import subprocess
 import tempfile
-import threading
 from pathlib import Path
 from typing import Mapping, Sequence
 
