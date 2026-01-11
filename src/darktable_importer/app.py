@@ -23,14 +23,14 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.xmp:
         importer.export_xmp(images, cli_keywords)
-    launcher = DarktableLauncher()
+    launcher = DarktableLauncher(darktable_binary=args.app)
     process = launcher.launch(Path(args.output), [image.path for image in images])
     return process.wait()
 
 def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Import catalogue into darktable")
     parser.add_argument("--input", required=True, help="Path to the input catalogue (.lrcat)")
-    parser.add_argument("--output", required=True, help="Path to the target darktable library")
+    parser.add_argument("--output", required=False, help="Path to the target darktable library (defaults to input with .db extension)")
     parser.add_argument(
         "--xmp",
         action="store_true",
@@ -40,7 +40,19 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
         "--keywords",
         help="Comma-separated list of keywords to append to the exported XMP files",
     )
-    return parser.parse_args(args=list(argv) if argv is not None else None)
+    parser.add_argument(
+        "--app",
+        default="darktable",
+        help="Name of darktable binary to use (default: darktable)",
+    )
+    parsed = parser.parse_args(args=list(argv) if argv is not None else None)
+    # If output not provided, derive it from input by changing extension to .db
+    if not getattr(parsed, "output", None):
+        input_path = Path(parsed.input)
+        derived = input_path.with_suffix(".db")
+        parsed.output = str(derived)
+        print(f"Output library not provided, using derived path: {parsed.output}", file=sys.stderr)
+    return parsed
 
 if __name__ == "__main__":
     try:
