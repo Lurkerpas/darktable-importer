@@ -9,6 +9,15 @@ import re
 
 logger = logging.getLogger(__name__)
 
+ID_IDX = 0
+NAME_IDX = 1
+KEYWORDS_IDX = 2
+FLAG_IDX = 3
+
+XMP_HEADER_SIZE = 4
+XMP_ROW_IDX = 0
+XMP_COL_IDX = 0
+
 class ImageData:
     path : str
     id : str
@@ -74,10 +83,10 @@ class LRImporter:
             sys.exit(1)
         result = []
         for row in rows:
-            photo_path = self.fix_path(root_folder, actual_root_folder, row[1])        
-            image_data = ImageData(row[0], photo_path)
-            image_data.keywords = [kw.strip() for kw in row[2].split(',')] if row[2] else []
-            image_data.picked = (row[3] == 1)
+            photo_path = self.fix_path(root_folder, actual_root_folder, row[NAME_IDX])        
+            image_data = ImageData(row[ID_IDX], photo_path)
+            image_data.keywords = [kw.strip() for kw in row[KEYWORDS_IDX].split(',')] if row[KEYWORDS_IDX] else []
+            image_data.picked = (row[FLAG_IDX] == 1)
             logger.debug(f"{photo_path} ID: {image_data.id} Keywords: {image_data.keywords} Picked: {image_data.picked}")
             result.append(image_data)
         logger.info(f"Found {len(result)} images in catalogue")
@@ -153,7 +162,7 @@ class LRImporter:
         for image in images:
             try:
                 # First (the only) column is the XMP data; why is it additionally packed in a tuple? Don't know.
-                xmp_data = self.lrdb.get_xmp(image.id)[0][0]
+                xmp_data = self.lrdb.get_xmp(image.id)[XMP_ROW_IDX][XMP_COL_IDX]
             except LRCatException as _e:
                 logger.warning(f"Failed to get XMP for image {image.id}: {_e}")
                 failed_count += 1
@@ -163,7 +172,7 @@ class LRImporter:
             try:
                 # Compressed XMP data is stored with a 4-byte header, skip it
                 # TODO - possibly check whether there is a possibility that the data is not compressed
-                xmp_data_decompressed = zlib.decompress(xmp_data[4:])
+                xmp_data_decompressed = zlib.decompress(xmp_data[XMP_HEADER_SIZE:])
                 xmp_string = xmp_data_decompressed.decode('utf-8', errors='replace')
             except zlib.error as _e:
                 logger.warning(f"Failed to decompress XMP for image {image.id}: {_e}")
