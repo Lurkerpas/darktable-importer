@@ -12,5 +12,5 @@ Install via: `make install`
 
 Launch:
 Type `darktable-importer --help` for CLI documentation.
-Type `darktable-importer --input MyCatalogue.lrcat --xmp` to launch dartable with an inport script.
+Type `darktable-importer --input MyCatalogue.lrcat --xmp` to launch darktable with an import script.
 Type `darktable-importer --input MyCatalogue.lrcat --xmp --donotlaunch` to just extract the XMP sidecars.
